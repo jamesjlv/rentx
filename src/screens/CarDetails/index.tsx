@@ -36,14 +36,13 @@ export function CarDetails() {
   const { car } = routes.params as Params;
 
   function handleScheduling() {
-    navigation.navigate('Scheduling');
+    navigation.navigate('Scheduling', { car });
   }
 
   function handleBack() {
     navigation.goBack();
   }
 
-  console.log(car.accessories);
   return (
     <Container>
       <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
