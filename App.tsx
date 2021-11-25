@@ -10,7 +10,6 @@ import {
 
 import { ThemeProvider } from 'styled-components/native';
 import theme from './src/styles/theme';
-import { SchedulingComplete } from './src/screens/SchedulingComplete';
 import { Routes } from './src/routes';
 
 export default function App() {

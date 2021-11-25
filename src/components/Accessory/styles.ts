@@ -1,9 +1,13 @@
-import { Platform } from 'react-native';
+import { Dimensions, Platform } from 'react-native';
 import { RFValue } from 'react-native-responsive-fontsize';
 import styled from 'styled-components/native';
 
 export const Container = styled.View`
-  width: ${Platform.OS === 'ios' ? '109px' : `${RFValue(109)}px`};
+  width: ${Platform.OS === 'ios'
+    ? '109px'
+    : Dimensions.get('screen').width < 390
+    ? `${RFValue(109)}px`
+    : `${RFValue(100)}px`};
   height: 92px;
 
   justify-content: center;
