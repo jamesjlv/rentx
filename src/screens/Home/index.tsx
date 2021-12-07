@@ -1,85 +1,77 @@
 import React, { useEffect, useState } from 'react';
-import { BackHandler, StatusBar, StyleSheet } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { StatusBar } from 'react-native';
+import { useNavigation, NavigationProp, ParamListBase } from '@react-navigation/native';
+import { RFValue } from 'react-native-responsive-fontsize';
+import { useNetInfo } from '@react-native-community/netinfo';
+import { synchronize } from '@nozbe/watermelondb/sync';
+import { database } from '../../database';
+import { Car as ModelCar } from '../../database/models/Car';
+
 import { Container, Header, TotalCars, HeaderContent, CarList } from './styles';
-import { Load } from '../../components/Load';
-
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  useAnimatedGestureHandler,
-  withSpring,
-} from 'react-native-reanimated';
-
-const ButtonAnimated = Animated.createAnimatedComponent(RectButton);
 
 import Logo from '../../assets/logo.svg';
-import { RFValue } from 'react-native-responsive-fontsize';
 import { Car } from '../../components/Car';
-import { useNavigation, NavigationProp, ParamListBase } from '@react-navigation/native';
 import { api } from '../../services/api';
-import { CarDTO } from '../../dtos/CarDTO';
-import { useTheme } from 'styled-components';
-import { RectButton, PanGestureHandler } from 'react-native-gesture-handler';
+
 import { LoadAnimation } from '../../components/LoadAnimation';
+import { CarDTO } from '../../dtos/CarDTO';
 
 export function Home() {
-  const [cars, setCars] = useState<CarDTO[]>([]);
+  const [cars, setCars] = useState<ModelCar[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const netInfo = useNetInfo();
   const navigation: NavigationProp<ParamListBase> = useNavigation();
-  const theme = useTheme();
 
-  const positionY = useSharedValue(0);
-  const positionX = useSharedValue(0);
-
-  const myCarsButtonStyle = useAnimatedStyle(() => {
-    return {
-      transform: [{ translateX: positionX.value }, { translateY: positionY.value }],
-    };
-  });
-
-  const onGestureEvent = useAnimatedGestureHandler({
-    onStart(_, ctx: any) {
-      ctx.positionX = positionX.value;
-      ctx.positionY = positionY.value;
-    },
-    onActive(e, ctx: any) {
-      positionX.value = ctx.positionX + e.translationX;
-      positionY.value = ctx.positionY + e.translationY;
-    },
-    onEnd() {
-      positionX.value = withSpring(0);
-      positionY.value = withSpring(0);
-    },
-  });
-
-  function handleCarDetails(car: CarDTO) {
+  function handleCarDetails(car: ModelCar) {
     navigation.navigate('CarDetails', { car });
   }
 
-  function handleOpenMyCars() {
-    navigation.navigate('MyCars');
+  async function offlineSynchronize() {
+    await synchronize({
+      database,
+      pullChanges: async ({ lastPulledAt }) => {
+        const { data } = await api.get(`cars/sync/pull?lastPulledVersion=${lastPulledAt || 0}`);
+        const { changes, latestVersion } = data;
+        return { changes, timestamp: latestVersion };
+      },
+      pushChanges: async ({ changes }) => {
+        const user = changes.users;
+        await api.post('users/sync', user).catch(console.log);
+      },
+    });
   }
 
   useEffect(() => {
+    let isMounted = true;
+
     async function fetchCars() {
       try {
-        const response = await api.get('/cars');
-        setCars(response.data as CarDTO[]);
+        const carCollection = database.get<ModelCar>('cars');
+        const cars = await carCollection.query().fetch();
+
+        if (isMounted) {
+          setCars(cars);
+        }
       } catch (error) {
         console.log(error);
       } finally {
-        setLoading(false);
+        if (isMounted) {
+          setLoading(false);
+        }
       }
     }
     fetchCars();
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   useEffect(() => {
-    BackHandler.addEventListener('hardwareBackPress', () => {
-      return true;
-    });
-  }, []);
+    if (netInfo.isConnected === true) {
+      offlineSynchronize();
+    }
+  }, [netInfo.isConnected]);
 
   return (
     <Container>
@@ -90,6 +82,7 @@ export function Home() {
           {!loading && <TotalCars>Total de {cars.length} carros</TotalCars>}
         </HeaderContent>
       </Header>
+
       {loading ? (
         <LoadAnimation />
       ) : (
@@ -99,26 +92,6 @@ export function Home() {
           renderItem={({ item }) => <Car data={item} onPress={() => handleCarDetails(item)} />}
         />
       )}
-      <PanGestureHandler onGestureEvent={onGestureEvent}>
-        <Animated.View style={[myCarsButtonStyle, { position: 'absolute', bottom: 13, right: 22 }]}>
-          <ButtonAnimated
-            onPress={handleOpenMyCars}
-            style={[styles.button, { backgroundColor: theme.colors.main }]}
-          >
-            <Ionicons name="ios-car-sport" color={theme.colors.shape} size={32} />
-          </ButtonAnimated>
-        </Animated.View>
-      </PanGestureHandler>
     </Container>
   );
 }
-
-const styles = StyleSheet.create({
-  button: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-});

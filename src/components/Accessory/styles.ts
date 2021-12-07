@@ -4,7 +4,7 @@ import styled from 'styled-components/native';
 
 export const Container = styled.View`
   width: ${Platform.OS === 'ios'
-    ? '109px'
+    ? `${RFValue(99)}px`
     : Dimensions.get('screen').width < 390
     ? `${RFValue(109)}px`
     : `${RFValue(100)}px`};

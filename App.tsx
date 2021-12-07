@@ -6,7 +6,7 @@ import {
   Archivo_500Medium,
   Archivo_600SemiBold,
 } from '@expo-google-fonts/archivo';
-
+import { AppProvider } from './src/hooks';
 import { ThemeProvider } from 'styled-components/native';
 import theme from './src/styles/theme';
 import { Routes } from './src/routes';
@@ -25,7 +25,9 @@ export default function App() {
   } else {
     return (
       <ThemeProvider theme={theme}>
-        <Routes />
+        <AppProvider>
+          <Routes />
+        </AppProvider>
       </ThemeProvider>
     );
   }

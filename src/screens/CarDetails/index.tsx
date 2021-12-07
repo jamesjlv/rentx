@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { StatusBar, StyleSheet } from 'react-native';
 import { BackButton } from '../../components/BackButton';
 import { ImageSlider } from '../../components/ImageSlider';
@@ -17,6 +17,7 @@ import {
   About,
   Accessories,
   Footer,
+  OfflineInfo,
 } from './styles';
 
 import { Accessory } from '../../components/Accessory';
@@ -32,18 +33,22 @@ import Animated, {
   Extrapolate,
 } from 'react-native-reanimated';
 import { getStatusBarHeight } from 'react-native-iphone-x-helper';
-import { useTheme } from 'styled-components';
+import { Car as ModelCar } from '../../database/models/Car';
+import { api } from '../../services/api';
+import { useNetInfo } from '@react-native-community/netinfo';
 
 interface Params {
-  car: CarDTO;
+  car: ModelCar;
 }
 
 export function CarDetails() {
+  const [carUpdated, setCarUpdated] = useState<CarDTO>({} as CarDTO);
+  const netInfo = useNetInfo();
   const statusBarHeight = getStatusBarHeight();
   const navigation: NavigationProp<ParamListBase> = useNavigation();
   const routes = useRoute();
   const { car } = routes.params as Params;
-  const theme = useTheme();
+
   const scrollY = useSharedValue(0);
   const scrollHandler = useAnimatedScrollHandler((event) => {
     scrollY.value = event.contentOffset.y;
@@ -63,12 +68,22 @@ export function CarDetails() {
   });
 
   function handleScheduling() {
-    navigation.navigate('Scheduling', { car });
+    navigation.navigate('Scheduling', { car: carUpdated });
   }
 
   function handleBack() {
     navigation.goBack();
   }
+
+  useEffect(() => {
+    async function fetchOnlineData() {
+      const response = await api.get(`cars/${car.id}`);
+      setCarUpdated(response.data);
+    }
+    if (netInfo.isConnected === true) {
+      fetchOnlineData();
+    }
+  }, [netInfo.isConnected]);
 
   return (
     <Container>
@@ -79,7 +94,13 @@ export function CarDetails() {
         </Header>
         <Animated.View style={[slideCardsStyleAnimation]}>
           <CarImage>
-            <ImageSlider imagesUrl={car.photos} />
+            <ImageSlider
+              imagesUrl={
+                !!carUpdated.photos
+                  ? carUpdated.photos
+                  : [{ id: car.thumbnail, photo: car.thumbnail }]
+              }
+            />
           </CarImage>
         </Animated.View>
       </Animated.View>
@@ -98,28 +119,34 @@ export function CarDetails() {
             <Name>{car.name}</Name>
           </Description>
           <Rent>
-            <Period>{car.rent.period}</Period>
-            <Price>R$ {car.rent.price}</Price>
+            <Period>{car.period}</Period>
+            <Price>R$ {netInfo.isConnected === true ? car.price : '...'}</Price>
           </Rent>
         </Details>
-        <Accessories>
-          {car.accessories.map((acessory) => (
-            <Accessory
-              name={acessory.name}
-              icon={getAccessoryIcon(acessory.type)}
-              key={acessory.type}
-            />
-          ))}
-        </Accessories>
-        <About>
-          {car.about}
-          {car.about}
-          {car.about}
-          {car.about}
-        </About>
+        {carUpdated.accessories && (
+          <Accessories>
+            {carUpdated.accessories.map((acessory) => (
+              <Accessory
+                name={acessory.name}
+                icon={getAccessoryIcon(acessory.type)}
+                key={acessory.type}
+              />
+            ))}
+          </Accessories>
+        )}
+        <About>{car.about}</About>
       </Animated.ScrollView>
       <Footer>
-        <Button title="Escolher período do aluguel" onPress={handleScheduling} />
+        <Button
+          title="Escolher período do aluguel"
+          onPress={handleScheduling}
+          enabled={!!netInfo.isConnected}
+        />
+        {netInfo.isConnected === false && (
+          <OfflineInfo>
+            Conecte-se a Internet para ver mais detalhes e agendar o seu carro
+          </OfflineInfo>
+        )}
       </Footer>
     </Container>
   );

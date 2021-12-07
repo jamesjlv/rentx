@@ -9,9 +9,17 @@ interface ButtonProps extends RectButtonProps {
   color?: string;
   enabled?: boolean;
   loading?: boolean;
+  light?: boolean;
 }
 
-export function Button({ title, color, enabled = true, loading = false, ...rest }: ButtonProps) {
+export function Button({
+  title,
+  color,
+  enabled = true,
+  loading = false,
+  light = false,
+  ...rest
+}: ButtonProps) {
   return (
     <Container
       color={color}
@@ -19,7 +27,11 @@ export function Button({ title, color, enabled = true, loading = false, ...rest 
       style={{ opacity: enabled === false || loading === true ? 0.5 : 1 }}
       {...rest}
     >
-      {loading ? <ActivityIndicator color={theme.colors.shape} /> : <Title>{title}</Title>}
+      {loading ? (
+        <ActivityIndicator color={theme.colors.shape} />
+      ) : (
+        <Title light={light}>{title}</Title>
+      )}
     </Container>
   );
 }
